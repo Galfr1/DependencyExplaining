@@ -2,13 +2,14 @@ import openpyxl
 import subprocess
 import os
 from openai import OpenAI
+import sys
 
-#your openai api key
-client = OpenAI(api_key="")
+#your openai api key (second argument)
+client = OpenAI(api_key=sys.argv[2])
 
 
-#path of the excel file
-inputXlPath = ""
+#path of the excel file (first argument)
+inputXlPath = sys.argv[1]
 
 #loading the excel file
 wb = openpyxl.load_workbook(inputXlPath)
@@ -34,49 +35,49 @@ cliOutputs = []
 
 #running git clone and syft for each path
 for p in path:
-    u = "/tmp/" + p.split("/")[-1]
-    os.mkdir(u)
-    subprocess.run(["git", "clone", p, u])
-    result = subprocess.check_output(['syft', u])
+    tmp_clone_folder_path = os.path.expanduser('~') + "/tmp/" + p.split("/")[-1]
+    os.makedirs(u)
+    subprocess.run(["git", "clone", p, tmp_clone_folder_path])
+    result = subprocess.check_output(['syft', tmp_clone_folder_path])
     cliOutputs.append(str(result.decode('utf-8')))
-    subprocess.run(["rm", "-r", "-f", u])
+    subprocess.run(["rm", "-r", "-f", tmp_clone_folder_path])
 
 #a new array containing the cleaned cli outputs of syft
 cleanedList = []
 
 #cleaning each cli output of syft and adding it to cleanedList array
 for o in cliOutputs:
-    split1 = o.split("\n")
-    split1.pop(0)
-    split1.pop(-1)
+    raw_dependecies_arr = o.split("\n")
+    raw_dependecies_arr.pop(0)
+    raw_dependecies_arr.pop(-1)
 
-    split2 = []
+    fixed_dependecies_arr = []
 
-    for s in split1:
-        a = False
+    for s in raw_dependecies_arr:
+        is_no_name = False
         s = s.split(" ")
         if s[0] == "":
-            a = True
+            is_no_name = True
         s = [i for i in s if i != '']
-        if a == True:
+        if is_no_name == True:
             s.insert(0, "")
-        split2.append(s)
+        fixed_dependecies_arr.append(s)
 
-    cleanedList.append(split2)
+    cleanedList.append(fixed_dependecies_arr)
 
 #a new array with the no name dependenceies and the "(+1 Duplicates)" text removed
 removedList = []
 
 #removing the no name dependenceies and the "(+1 Duplicates)" text
 for l in cleanedList:
-    arrl = []
-    for l1 in l:
-        if l1 != []:
-            if l1[0] != "":
-                if l1[-1].endswith('duplicates)') or l1[-1].endswith('duplicate)'):
-                    l1 = l1[:-2]
-                arrl.append(l1)
-    removedList.append(arrl)
+    cleaned_dependecies_project_arr = []
+    for cleaned_dependecy_arr in l:
+        if cleaned_dependecy_arr != []:
+            if cleaned_dependecy_arr[0] != "":
+                if cleaned_dependecy_arr[-1].endswith('duplicates)') or cleaned_dependecy_arr[-1].endswith('duplicate)'):
+                    cleaned_dependecy_arr = cleaned_dependecy_arr[:-2]
+                cleaned_dependecies_project_arr.append(cleaned_dependecy_arr)
+    removedList.append(cleaned_dependecies_project_arr)
 
 #an array containing chatgpt's descreptions
 finalList = []
@@ -84,9 +85,9 @@ finalList = []
 #adding to each dependency array chatgpt's descreption
 for r in removedList:
     arr = []
-    for r1 in r:
+    for dependency_arr in r:
         
-        message = "Can you explain what the " + r1[-1] + " " + r1[0] + " dependency is doing?"
+        message = "Can you explain what the " + dependency_arr[-1] + " " + dependency_arr[0] + " dependency is doing?"
 
         stream = client.chat.completions.create(
            model="gpt-3.5-turbo",
@@ -96,14 +97,22 @@ for r in removedList:
         for part in stream:
                reply = part.choices[0].delta.content or ""
 
-        r1.append(reply)
-        arr.append(r1)
+        dependency_arr.append(reply)
+        arr.append(dependency_arr)
     finalList.append(arr)
 
-#adding the results back to excel
-ws2 = wb.create_sheet(title = 'Output')
-ws2 = wb.get_sheet_by_name('Output')
+#creating the output excel file
+try:
+    filepath_output = sys.argv[3]
+except:
+    filepath_output = os.path.expanduser('~') + "/output.xlsx"
 
+wb_output = openpyxl.Workbook()
+
+ws2 = wb_output.create_sheet(title = 'Output')
+ws2 = wb_output.get_sheet_by_name('Output')
+
+#adding the results back to excel
 h = 0
 for f in finalList:
     projectName = path[h].split("/")[-1]
@@ -125,4 +134,4 @@ for f in finalList:
         b = b + 1
 
 #saving the excel file
-wb.save(inputXlPath)
+wb_output.save(filepath_output)
