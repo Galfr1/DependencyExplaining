@@ -36,8 +36,8 @@ cliOutputs = []
 #running git clone and syft for each path
 for p in path:
     tmp_clone_folder_path = os.path.expanduser('~') + "/tmp/" + p.split("/")[-1]
-    os.makedirs(u)
-    subprocess.run(["git", "clone", p, tmp_clone_folder_path])
+    os.makedirs(tmp_clone_folder_path)
+    subprocess.run(["git", "clone", "--depth", "1", p, tmp_clone_folder_path])
     result = subprocess.check_output(['syft', tmp_clone_folder_path])
     cliOutputs.append(str(result.decode('utf-8')))
     subprocess.run(["rm", "-r", "-f", tmp_clone_folder_path])
