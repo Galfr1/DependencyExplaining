@@ -33,14 +33,31 @@ while bool:
 #an array containing the outputs of the syft cli
 cliOutputs = []
 
-#running git clone and syft for each path
+#an array containing the outputs of github linguist
+linguistOutputs = []
+
+#running git clone, syft, and github linguist for each path
 for p in path:
     tmp_clone_folder_path = os.path.expanduser('~') + "/tmp/" + p.split("/")[-1]
     os.makedirs(tmp_clone_folder_path)
     subprocess.run(["git", "clone", "--depth", "1", p, tmp_clone_folder_path])
     result = subprocess.check_output(['syft', tmp_clone_folder_path])
     cliOutputs.append(str(result.decode('utf-8')))
+    result2 = subprocess.check_output(['github-linguist', tmp_clone_folder_path])
+    linguistOutputs.append(str(result2.decode('utf-8')))
     subprocess.run(["rm", "-r", "-f", tmp_clone_folder_path])
+
+#a new array containing the cleaned linguist output
+cleanedLinguistOutput = []
+
+#cleaning the linguist output
+for l in linguistOutputs:
+    output = l.split("\n")
+    output2 = []
+    for o in output:
+        o1 = o.split(" ")
+        output2.append([string for string in o1 if string != ''])
+    cleanedLinguistOutput.append(output2)
 
 #a new array containing the cleaned cli outputs of syft
 cleanedList = []
@@ -110,9 +127,9 @@ except:
 wb_output = openpyxl.Workbook()
 
 ws2 = wb_output.create_sheet(title = 'Output')
-ws2 = wb_output.get_sheet_by_name('Output')
+ws2 = wb_output['Output']
 
-#adding the results back to excel
+#adding the syft results back to excel
 h = 0
 for f in finalList:
     projectName = path[h].split("/")[-1]
@@ -130,6 +147,25 @@ for f in finalList:
                 ws2['D' + str(b)] = k
             if n==5:
                 ws2['E' + str(b)] = k
+            n = n + 1
+        b = b + 1
+
+#adding the linguist results back to excel
+h = 0
+for f in linguistOutputs:
+    projectName = path[h].split("/")[-1]
+    h = h + 1
+    b = h
+    for f1 in f:
+        ws2['F' + str(h)] = projectName
+        n = 2
+        for k in f1:
+            if n==2:
+                ws2['G' + str(b)] = k
+            if n==3:
+                ws2['H' + str(b)] = k
+            if n==4:
+                ws2['I' + str(b)] = k
             n = n + 1
         b = b + 1
 
